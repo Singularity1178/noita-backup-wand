@@ -1,0 +1,74 @@
+<!-- mods/backup_wand/files/entities/backup_wand.xml
+     A real, fully functional Noita wand. It contains no procedurally generated
+     spells (there is no wand_level_*.lua script attached): the single BACKUP
+     card is inserted from Lua right after the wand is created, which is what
+     makes this wand "a wand with exactly one spell".
+-->
+<Entity tags="bkup_backup_wand">
+
+	<Base file="data/entities/base_item.xml">
+		<ItemComponent
+			ui_name="Backup Wand"
+			play_hover_animation="1"
+			play_spinning_animation="0"
+			preferred_inventory="QUICK"
+			collect_nondefault_actions="1"
+			remove_on_death="0"
+		></ItemComponent>
+
+		<SpriteComponent
+			image_file="data/items_gfx/wands/custom/skull_01.xml"
+			next_rect_animation="default"
+			rect_animation="default"
+		></SpriteComponent>
+	</Base>
+
+	<Base file="data/entities/base_wand.xml">
+	</Base>
+
+	<AbilityComponent
+		_enabled="1"
+		amount_in_inventory="1"
+		cooldown_frames="0"
+		drop_as_item_on_death="0"
+		entity_count="1"
+		entity_file=""
+		fast_projectile="0"
+		mana_charge_speed="200"
+		mana="100"
+		mana_max="100"
+		max_amount_in_inventory="1"
+		never_reload="1"
+		reload_time_frames="0"
+		shooting_reduces_amount_in_inventory="0"
+		sprite_file="data/items_gfx/wands/custom/skull_01.xml"
+		swim_propel_amount="0"
+		throw_as_item="0"
+		ui_name="Backup Wand"
+		use_gun_script="1"
+		add_these_child_actions=""
+		gun_level="1"
+		current_slot_durability="-1"
+	>
+		<gun_config
+			actions_per_round="1"
+			shuffle_deck_when_empty="0"
+			reload_time="0"
+			deck_capacity="8"
+		></gun_config>
+		<gunaction_config
+			fire_rate_wait="6"
+		></gunaction_config>
+	</AbilityComponent>
+
+	<HotspotComponent
+		_tags="shoot_pos"
+		offset.x="18"
+		offset.y="0"
+	></HotspotComponent>
+
+	<ManaReloaderComponent
+		_tags="enabled_in_world,enabled_in_hand,enabled_in_inventory"
+	></ManaReloaderComponent>
+
+</Entity>

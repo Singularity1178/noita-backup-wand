@@ -1,0 +1,172 @@
+<!-- mods/backup_wand/files/entities/backup_clone.xml
+     The visible "copy of the player".
+
+     It is built on data/entities/player_base.xml so that it looks exactly like
+     the player, but every component that would make the game treat it as a
+     second player, or that would let it move, take input, or be damaged, is
+     turned off.
+
+     Turned off here:
+       PlatformShooterPlayerComponent  - would drag the camera onto the clone
+       ControlsComponent              - no input
+       CharacterPlatformingComponent   - no movement / gravity / collision push
+       PhysicsPickUpComponent          - cannot grab things
+       KickComponent                   - cannot be kicked around
+       MaterialSuckerComponent         - does not eat gold or liquids
+       InventoryGuiComponent           - no inventory UI
+       AudioListenerComponent          - only one audio listener in the world
+       PathFindingGridMarkerComponent  - does not reserve pathfinding
+       StreamingKeepAliveComponent     - handled per-clone from Lua instead
+       HitboxComponent                 - can neither be hit nor hit anything
+       IngestionComponent / MaterialInventoryComponent - no eating, no potions
+     -->
+<Entity name="backup_wand_clone">
+
+	<Base file="data/entities/player_base.xml" include_children="1" />
+
+	<PlatformShooterPlayerComponent
+		_enabled="0"
+		center_camera_on_this_entity="0"
+	></PlatformShooterPlayerComponent>
+
+	<ControlsComponent
+		_enabled="0"
+	></ControlsComponent>
+
+	<CharacterPlatformingComponent
+		_enabled="0"
+	></CharacterPlatformingComponent>
+
+	<PhysicsPickUpComponent
+		_enabled="0"
+	></PhysicsPickUpComponent>
+
+	<KickComponent
+		_enabled="0"
+	></KickComponent>
+
+	<MaterialSuckerComponent
+		_enabled="0"
+	></MaterialSuckerComponent>
+
+	<PathFindingGridMarkerComponent
+		_enabled="0"
+	></PathFindingGridMarkerComponent>
+
+	<InventoryGuiComponent
+		_enabled="0"
+	></InventoryGuiComponent>
+
+	<AudioListenerComponent
+		_enabled="0"
+	></AudioListenerComponent>
+
+	<StreamingKeepAliveComponent
+		_enabled="0"
+	></StreamingKeepAliveComponent>
+
+	<IngestionComponent
+		_enabled="0"
+	></IngestionComponent>
+
+	<MaterialInventoryComponent
+		_enabled="0"
+	></MaterialInventoryComponent>
+
+	<!-- roomy, so a full player loadout always fits inside the copy -->
+	<Inventory2Component
+		quick_inventory_slots="30"
+		full_inventory_slots_x="20"
+		full_inventory_slots_y="10"
+	></Inventory2Component>
+
+	<!-- not a hitbox: the copy can neither be shot nor block anything -->
+	<HitboxComponent
+		_enabled="0"
+		is_player="0"
+		is_enemy="0"
+	></HitboxComponent>
+
+	<GameStatsComponent
+		is_player="0"
+	></GameStatsComponent>
+
+	<GameLogComponent
+		report_damage="0"
+		report_death="0"
+	></GameLogComponent>
+
+	<ItemPickUpperComponent
+		drop_items_on_death="0"
+	></ItemPickUpperComponent>
+
+	<!-- effectively immortal. wait_for_kill_flag_on_death means that even if
+	     something did manage to zero the hp, the engine will not finish the kill,
+	     and the mod tops the hp back up every few frames anyway. -->
+	<DamageModelComponent
+		hp="4"
+		max_hp="4"
+		wait_for_kill_flag_on_death="1"
+		materials_damage="0"
+		materials_create_messages="0"
+		falling_damage_damage_min="0"
+		falling_damage_damage_max="0"
+		invincibility_frames="100000"
+	></DamageModelComponent>
+
+	<!-- survives the world streaming out from under it -->
+	<CameraBoundComponent
+		max_count="2"
+		distance="1024"
+		freeze_on_distance_kill="1"
+		freeze_on_max_count_kill="1"
+	></CameraBoundComponent>
+
+	<!-- ghostly look -->
+	<LightComponent
+		r="110"
+		g="180"
+		b="255"
+		radius="190"
+		fade_out_time="2.0"
+	></LightComponent>
+
+	<SpriteComponent
+		_tags="character,lukki_disable"
+		alpha="0.55"
+		emissive="0.6"
+		image_file="data/enemies_gfx/player.xml"
+		next_rect_animation=""
+		offset_x="6"
+		offset_y="14"
+		rect_animation="walk"
+		z_index="0.6"
+	></SpriteComponent>
+
+	<SpriteParticleEmitterComponent
+		sprite_file="data/particles/smoke_ghostly.png"
+		delay="0"
+		lifetime="1.2"
+		color.r="0.35" color.g="0.65" color.b="1.0" color.a="0.30"
+		color_change.r="0" color_change.g="0" color_change.b="0" color_change.a="-0.30"
+		velocity.x="0" velocity.y="-5"
+		gravity.x="0" gravity.y="0"
+		velocity_slowdown="0"
+		rotation="0"
+		angular_velocity="0"
+		scale.x="0.7" scale.y="0.7"
+		scale_velocity.x="0" scale_velocity.y="0"
+		emission_interval_min_frames="5"
+		emission_interval_max_frames="13"
+		emissive="1"
+		additive="1"
+		count_min="1" count_max="1"
+		use_velocity_as_rotation="0"
+		randomize_position.min_x="-8"
+		randomize_position.max_x="8"
+		randomize_position.min_y="-4"
+		randomize_position.max_y="10"
+	>
+	</SpriteParticleEmitterComponent>
+
+</Entity>

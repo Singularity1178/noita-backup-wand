@@ -1,0 +1,11 @@
+# Editor / OS cruft
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Noita does not write anything into a mod folder, but guard just in case
+save*.xml
+*.rep
+logger.txt
