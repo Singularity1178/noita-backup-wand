@@ -25,7 +25,6 @@ So that regressions are obvious, these were observed working:
   resurrected into the copy and the backup is consumed.
 - The Backup Wand appears in the quickslots on spawn and can be equipped and
   fired like a normal wand.
-- The quick-cast hotkey works.
 - Post-backup items are not destroyed: they are dropped on the floor where the
   player fell.
 
