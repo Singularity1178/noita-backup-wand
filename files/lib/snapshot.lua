@@ -156,6 +156,20 @@ local function strip_wand_generation(wand)
 	end
 end
 
+-- A wand is an item that owns a gun configuration. The "wand" tag comes from
+-- data/entities/base_wand.xml, but whether tags survive being overridden through
+-- <Base> is not something to depend on, so the dedicated capacity API is used as
+-- the authoritative test with the tag as a cheap pre-filter.
+local function is_wand_entity(item)
+	local ok, has = pcall(EntityHasTag, item, "wand")
+	if ok and has == true then return true end
+
+	local cok, cap = pcall(EntityGetWandCapacity, item)
+	if cok and type(cap) == "number" and cap > 0 then return true end
+
+	return false
+end
+
 local function kill_all_cards(wand)
 	local kids = EntityGetAllChildren(wand)
 	if kids == nil then return end
@@ -194,17 +208,14 @@ end
 -- perks
 -------------------------------------------------------------------------------
 
--- Every perk the player owns, whether classic or modern. A perk always leaves a
--- UIIconComponent child behind (that is what draws its icon in the perk bar),
+-- The perk ids the player currently has, as a lookup set. Every perk leaves a
+-- UIIconComponent child behind (that is what draws its icon in the perk bar)
 -- whose "name" is the ui_name, e.g. "$perk_extra_hp" -> id EXTRA_HP.
-local function perk_ids_of(entity)
-	local ids, seen = {}, {}
+local function perk_id_set(entity)
+	local set = {}
 
 	local function add(id)
-		if type(id) == "string" and id ~= "" and not seen[id] then
-			seen[id] = true
-			table.insert(ids, id)
-		end
+		if type(id) == "string" and id ~= "" then set[id] = true end
 	end
 
 	local kids = EntityGetAllChildren(entity)
@@ -237,6 +248,16 @@ local function perk_ids_of(entity)
 		end
 	end)
 
+	return set
+end
+
+local function perk_ids_of(entity)
+	local ids = {}
+	local seen = perk_id_set(entity)
+	for id, _ in pairs(seen) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
 	return ids
 end
 
@@ -295,7 +316,7 @@ local function record_for(item)
 	if not string.find(file, "%.xml$") then return nil end
 	file = clean(file)
 
-	if EntityHasTag(item, "wand") then
+	if is_wand_entity(item) then
 		local cards = cards_of(item)
 		local child_strs = {}
 		for _, c in ipairs(cards) do
@@ -527,9 +548,16 @@ end
 --     perks) actually reads
 --   * the game's own perk_pickup(), for every perk that lives in perk_list.lua,
 --     so that game effects, custom funcs and the perk-bar icons come back
+--
+-- Crucially, perks the player ALREADY has are skipped. The rescue runs on a
+-- player that is still carrying the perks they had, so re-applying everything
+-- would double them up: stackable perks such as EXTRA_HP would multiply max hp
+-- twice and every perk would gain a duplicate icon.
 function M.restore_perks(entity, ids)
 	if entity == nil or entity == 0 or not EntityGetIsAlive(entity) then return end
 	if ids == nil or #ids == 0 then return end
+
+	local already = perk_id_set(entity)
 
 	local known = {}
 	pcall(function()
@@ -554,14 +582,21 @@ function M.restore_perks(entity, ids)
 		have_perk_pickup = ok
 	end
 
+	local applied, skipped = 0, 0
 	for _, id in ipairs(ids) do
 		if type(id) == "string" and id ~= "" then
 			pcall(GameAddFlagRun, "PERK_" .. id)
-			if known[id] and have_perk_pickup and perk_pickup ~= nil then
+			if already[id] then
+				skipped = skipped + 1
+			elseif known[id] and have_perk_pickup and perk_pickup ~= nil then
 				pcall(perk_pickup, 0, entity, id, false, false, true)
+				applied = applied + 1
 			end
 		end
 	end
+
+	print_error(string.format(
+		"backup_wand: perks applied=%d skipped_already_held=%d", applied, skipped))
 end
 
 -- Safety net: put the recorded aggregate stats back.

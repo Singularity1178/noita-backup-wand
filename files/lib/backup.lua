@@ -18,6 +18,9 @@ local SNAP = dofile_once("mods/backup_wand/files/lib/snapshot.lua")
 local M = {}
 
 local MOD_DIR = "mods/backup_wand"
+-- ModSettingGet wants "mod_name.setting_id", and the mod name is the value of
+-- mod_id in settings.lua ("backup_wand"). It is NOT the mods/ folder path.
+local SETTINGS_ID = "backup_wand"
 local CLONE_ENTITY = MOD_DIR .. "/files/entities/backup_clone.xml"
 local WAND_ENTITY = MOD_DIR .. "/files/entities/backup_wand.xml"
 local CLONE_NAME = "backup_wand_clone"
@@ -71,7 +74,7 @@ end
 -- initialised yet, in which case the documented default is used -- the mod
 -- must never silently do nothing just because a setting is missing.
 local function setting_raw(id, default)
-	local ok, v = pcall(ModSettingGet, MOD_DIR .. "." .. id)
+	local ok, v = pcall(ModSettingGet, SETTINGS_ID .. "." .. id)
 	if not ok or v == nil then return default end
 	return v
 end
@@ -188,15 +191,14 @@ local function find_clone()
 	if valid(g_clone) then return g_clone end
 	g_clone = nil
 
-	-- name first (any string is valid for a name), tag as a fallback
-	local by_name = EntityGetWithName(CLONE_NAME)
-	if by_name ~= nil then
-		for _, e in ipairs(by_name) do
-			if valid(e) then
-				g_clone = e
-				return e
-			end
-		end
+	-- EntityGetWithName returns a SINGLE entity id (0 when nothing matches), not
+	-- a list, so it must never be iterated. It is also documented as slow, and
+	-- this function runs every frame, so the in-memory g_clone above is the fast
+	-- path and this search is only the recovery route.
+	local ok, named = pcall(EntityGetWithName, CLONE_NAME)
+	if ok and valid(named) then
+		g_clone = named
+		return named
 	end
 
 	local by_tag = EntityGetWithTag(CLONE_TAG)
@@ -417,20 +419,48 @@ function M.cast_backup()
 	local px, py = EntityGetTransform(player)
 	local tx, ty = px + CLONE_OFFSET, py
 
-	local clone = find_clone()
+	-- Put a fresh marker down next to the player, or reuse one already standing
+	-- here. Reused so that a recall cannot end up with two copies.
+	local function place_marker()
+		local existing = find_clone()
+		if valid(existing) then return existing end
+		if not setting_on("clone_is_visible", true) then return nil end
 
-	if valid(clone) then
-		-- exactly one copy may exist, and it already does: bring it to the player
-		local cx, cy = EntityGetTransform(clone)
-		if math.abs(cx - tx) > 2 or math.abs(cy - ty) > 2 then
-			burst(cx, cy, 40)
+		drop_clone()
+		local sx, sy = free_spot(tx, ty)
+		local marker = EntityLoad(CLONE_ENTITY, sx, sy)
+		if valid(marker) then
+			sanitize_clone(marker)
+			g_clone = marker
+			remember_clone_pos(sx, sy)
+			print_error("backup_wand: clone entity " .. tostring(marker)
+				.. " spawned at " .. tostring(sx) .. "," .. tostring(sy))
+		else
+			remember_clone_pos(tx, ty)
+			print_error("backup_wand: EntityLoad(" .. CLONE_ENTITY .. ") FAILED")
 		end
-		safe(EntityApplyTransform, clone, tx, ty)
+		return marker
+	end
+
+	-- Whether a backup already exists is the source of truth, NOT whether the
+	-- marker entity happens to be alive: the marker can be destroyed by the
+	-- world, and it does not exist at all when "Show the copy" is switched off.
+	-- Keying off the marker would silently overwrite the backup on the next cast.
+	if has_backup() then
+		-- exactly one copy may exist, and it already does: bring it to the player
+		local clone = place_marker()
+		if valid(clone) then
+			local cx, cy = EntityGetTransform(clone)
+			if math.abs(cx - tx) > 2 or math.abs(cy - ty) > 2 then
+				burst(cx, cy, 40)
+			end
+			safe(EntityApplyTransform, clone, tx, ty)
+		end
 		remember_clone_pos(tx, ty)
 		burst(tx, ty, 40)
 		GamePrint("[Backup] Your copy is with you again.")
-		print_error("backup_wand: recalled copy " .. tostring(clone)
-			.. " to " .. tostring(tx) .. "," .. tostring(ty))
+		print_error("backup_wand: recalled, clone=" .. tostring(clone)
+			.. " at " .. tostring(tx) .. "," .. tostring(ty))
 
 		if setting_on("refresh_on_recall", false) then
 			g_has_backup = true
@@ -445,25 +475,7 @@ function M.cast_backup()
 		print_error("backup_wand: captured snapshot, "
 			.. (blob and #blob or 0) .. " chars, world_ready=" .. tostring(g_world_ready))
 
-		if setting_on("clone_is_visible", true) then
-			local sx, sy = free_spot(tx, ty)
-			drop_clone()
-			local marker = EntityLoad(CLONE_ENTITY, sx, sy)
-			if valid(marker) then
-				sanitize_clone(marker)
-				g_clone = marker
-				remember_clone_pos(sx, sy)
-				print_error("backup_wand: clone entity " .. tostring(marker)
-					.. " spawned at " .. tostring(sx) .. "," .. tostring(sy))
-			else
-				remember_clone_pos(tx, ty)
-				print_error("backup_wand: EntityLoad(" .. CLONE_ENTITY .. ") FAILED")
-			end
-		else
-			drop_clone()
-			remember_clone_pos(tx, ty)
-		end
-
+		place_marker()
 		burst(tx, ty, 50)
 		GamePrint("[Backup] Backup created.")
 	end
@@ -513,7 +525,7 @@ local function revive_into_copy()
 
 	local px, py = EntityGetTransform(player)
 
-	-- 1. what the dying player is carrying right now
+	-- 1. note what the dying player is carrying right now
 	local dying = {}
 	local items = GameGetAllInventoryItems(player)
 	if items ~= nil then
@@ -522,13 +534,13 @@ local function revive_into_copy()
 		end
 	end
 
-	-- 2. clear it out, so the copy's belongings are guaranteed to fit. Nothing is
-	--    deleted from the game: the items merely stop being owned, and step 5
-	--    deals with them depending on the setting.
-	for _, it in ipairs(dying) do
-		if valid(it) then
-			safe(GameKillInventoryItem, player, it)
-		end
+	-- 2. put it all on the floor rather than destroying it. GameKillInventoryItem
+	--    permanently deletes the entity, which would throw away everything picked
+	--    up after the last backup. GameDropPlayerInventoryItems is the game's own
+	--    drop logic, so those items stay real, recoverable world items. Doing this
+	--    first also guarantees the copy's belongings fit in the emptied inventory.
+	if #dying > 0 then
+		safe(GameDropPlayerInventoryItems, player)
 	end
 
 	-- 3. become the copy
@@ -544,8 +556,9 @@ local function revive_into_copy()
 
 	SNAP.restore_stats(player, stats)
 
-	-- 4. optionally also keep the post-backup items that still fit; whatever does
-	--    not fit is dropped at the feet rather than destroyed
+	-- 4. optionally reclaim the post-backup items that still fit. Whatever does
+	--    not fit simply stays on the floor where the player fell -- recoverable,
+	--    never destroyed.
 	if setting_on("keep_newer_items", false) then
 		for _, it in ipairs(dying) do
 			if valid(it) then
