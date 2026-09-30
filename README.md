@@ -15,9 +15,12 @@ A Noita mod. You get a **second wand** that holds a single spell called
 ## Status
 
 Confirmed working in game on **Noita v2024.08.12** — creating a copy, recalling
-it, and being rescued into it on death all function. The rough edges are still
-being smoothed out, so please [open an issue](https://github.com/Singularity1178/noita-backup-wand/issues)
-if something behaves oddly rather than assuming it is intended.
+it, and being rescued into it on death all function. There are known rough
+edges, listed in [ISSUES.md](ISSUES.md): the copy follows the player instead of
+standing still, two cosmetic sprite artifacts, occasionally more than one copy
+existing, and the copy not reliably retaining your wands. Please
+[open an issue](https://github.com/Singularity1178/noita-backup-wand/issues) for
+anything not listed there.
 
 ## Installing
 
