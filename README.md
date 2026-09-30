@@ -12,6 +12,21 @@ A Noita mod. You get a **second wand** that holds a single spell called
 
 ---
 
+## Status
+
+Confirmed working in game on **Noita v2024.08.12** — creating a copy, recalling
+it, and being rescued into it on death all function. The rough edges are still
+being smoothed out, so please [open an issue](https://github.com/Singularity1178/noita-backup-wand/issues)
+if something behaves oddly rather than assuming it is intended.
+
+## Installing
+
+Copy the `backup_wand` folder into your Noita `mods` directory, then enable
+**Backup Wand** in the mod list. It needs no other mods and no unsafe-API
+permission.
+
+---
+
 ## How to use it
 
 1. Enable **Backup Wand** in the mod list (Noita → main menu → Mods).
